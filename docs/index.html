@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Which Pages Should a Reviewer Check First? — Content Refresh Prioritization on FlyRank Search Data</title>
+<meta name="description" content="A research paper on ranking content pages for refresh review, built on FlyRank's anonymized search dataset. The model did not beat its own baseline — reported honestly.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --paper: #F7F5F0;
+    --ink: #1C2321;
+    --ink-soft: #4A5450;
+    --accent: #3D6B5C;
+    --accent-soft: #E7EEEA;
+    --decline: #A8583E;
+    --decline-soft: #F3E6E0;
+    --rule: #D8D3C7;
+    --rule-strong: #B8B2A0;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .wide {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  header.masthead {
+    border-bottom: 1px solid var(--rule);
+    padding: 56px 0 40px;
+  }
+
+  .kicker {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 18px;
+    letter-spacing: 0.02em;
+  }
+  .kicker a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent); }
+
+  h1.title {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: clamp(30px, 5vw, 42px);
+    line-height: 1.18;
+    margin: 0 0 20px;
+    letter-spacing: -0.01em;
+  }
+
+  .byline {
+    font-size: 15px;
+    color: var(--ink-soft);
+  }
+  .byline a { color: var(--accent); }
+
+  section {
+    padding: 48px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  section:last-of-type { border-bottom: none; }
+
+  h2 {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 600;
+    font-size: 26px;
+    margin: 0 0 22px;
+  }
+
+  h3 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    margin: 28px 0 10px;
+    color: var(--ink);
+  }
+
+  p { margin: 0 0 16px; }
+  p:last-child { margin-bottom: 0; }
+
+  .lede {
+    font-family: 'Source Serif 4', serif;
+    font-size: 20px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+
+  ul, ol { padding-left: 22px; margin: 0 0 16px; }
+  li { margin-bottom: 8px; }
+
+  code {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.85em;
+    background: var(--accent-soft);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin: 28px 0;
+  }
+  .stat {
+    flex: 1;
+    min-width: 140px;
+  }
+  .stat .num {
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 34px;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .stat .num.down { color: var(--decline); }
+  .stat .label {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin: 20px 0;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    font-weight: 600;
+    color: var(--ink-soft);
+    font-size: 13px;
+    text-transform: none;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  tr.highlight td { background: var(--accent-soft); }
+  tr.lowlight td { background: var(--decline-soft); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  figure {
+    margin: 28px 0;
+    padding: 0;
+  }
+  figure img {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--rule);
+  }
+  figcaption {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 20px;
+    margin: 24px 0;
+    font-family: 'Source Serif 4', serif;
+    font-size: 18px;
+    color: var(--ink);
+  }
+  .callout.warn { border-left-color: var(--decline); }
+
+  .finding-list li { margin-bottom: 14px; }
+  .finding-list .verdict {
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-right: 6px;
+  }
+  .verdict.confirmed { background: var(--accent-soft); color: var(--accent); }
+  .verdict.opposite, .verdict.false { background: var(--decline-soft); color: var(--decline); }
+  .verdict.mixed { background: #ECE7D8; color: #6B5E2E; }
+
+  .rec-list { list-style: none; padding: 0; margin: 24px 0; counter-reset: rec; }
+  .rec-list li {
+    counter-increment: rec;
+    padding: 16px 0 16px 40px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .rec-list li:last-child { border-bottom: none; }
+  .rec-list li::before {
+    content: counter(rec);
+    position: absolute;
+    left: 0;
+    top: 16px;
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--accent);
+  }
+  .rec-list .reason { font-size: 14px; color: var(--ink-soft); }
+
+  .repro-box {
+    background: var(--accent-soft);
+    padding: 20px 24px;
+    font-size: 15px;
+    margin: 20px 0;
+  }
+  .repro-box a { color: var(--accent); font-weight: 600; }
+
+  footer {
+    padding: 40px 0 64px;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  footer a { color: var(--accent); }
+  .credit-box {
+    border-top: 1px solid var(--rule);
+    padding-top: 24px;
+    margin-top: 24px;
+  }
+
+  @media (max-width: 600px) {
+    body { font-size: 16px; }
+    .stat-row { gap: 20px; }
+    .stat .num { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="kicker">FlyRank ML Internship — Capstone Research Paper</div>
+    <h1 class="title">Which Pages Should a Reviewer Check First?</h1>
+    <p class="lede">A content-refresh prioritization study on FlyRank's anonymized search
+    data — and a model that lost to its own baseline, reported honestly instead of hidden.</p>
+    <p class="byline">By Santosh &nbsp;·&nbsp; ML Engineering Intern, FlyRank AI &nbsp;·&nbsp;
+    <a href="https://github.com/Santosh-S321/flyrank-ml-internship">Repository</a></p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="abstract">
+  <h2>Abstract</h2>
+  <p>Content teams cannot review every page, so this study asks: which pages should a
+  reviewer check first for refresh? Using FlyRank's anonymized starter dataset —
+  30,000 content pages across 32 clients — we built a transparent baseline rule and
+  compared it against a Random Forest classifier under a client-grouped validation
+  split. The honest result: the baseline rule (Precision@50 = 0.64) modestly
+  outperformed the model (Precision@50 = 0.60), and a naive random split had earlier
+  made the model look misleadingly perfect (Precision@20 = 1.00) before grouping by
+  client exposed the true number (0.45). This paper reports that result as-is, along
+  with a ranked action queue, a leakage audit, and the validation lesson it revealed —
+  output intended for human-reviewed, decision-support use only, never automated
+  action.</p>
+</section>
+
+<section id="introduction">
+  <h2>Introduction</h2>
+  <p>A content team with hundreds of thousands of pages and a small review staff
+  cannot manually check every page for decline, staleness, or missed opportunity.
+  They need a ranked list: which pages to look at first, and why. This is a decision-support
+  problem, not an automation problem — a human still reviews and acts.</p>
+  <p>The obvious approach is a simple hand-written rule: flag pages that are old and
+  still getting traffic. This paper tests whether a learned model can do meaningfully
+  better than that rule — and reports honestly when it does not.</p>
+</section>
+
+<section id="data">
+  <h2>Data</h2>
+  <div class="stat-row">
+    <div class="stat"><div class="num">30,000</div><div class="label">content pages</div></div>
+    <div class="stat"><div class="num">32</div><div class="label">clients</div></div>
+    <div class="stat"><div class="num">90d</div><div class="label">trailing metrics window</div></div>
+  </div>
+  <p><strong>Source:</strong> the FlyRank ML Internship starter dataset
+  (<code>content_refresh_anonymized.csv</code>) — one row per pseudonymized content
+  page, with trailing 90-day search and engagement metrics.</p>
+  <h3>Excluded, and why</h3>
+  <ul>
+    <li><strong>trend_direction / trend_pct</strong> — the label's own source; used only
+    to define the target, never as a feature.</li>
+    <li><strong>FlyRank product decision flags</strong> (health_score, priority_score,
+    action_type) — not shipped in this dataset by design, and never reconstructed as a
+    feature. Using them would mean learning an existing rule, not discovering new signal.</li>
+    <li><strong>content_id / client_id</strong> — pseudonymous identifiers, used only for
+    joining and for the grouped validation split, never as model inputs.</li>
+  </ul>
+  <p>No client names, raw URLs, or private queries appear anywhere in this paper, its
+  source notebooks, or the linked repository.</p>
+</section>
+
+<section id="methodology">
+  <h2>Methodology</h2>
+  <h3>Task framing</h3>
+  <p>This is a ranking/scoring problem — "which pages first?" — not a plain
+  classification task. The output is an ordered queue, evaluated with
+  Precision@K rather than accuracy alone.</p>
+  <h3>Label</h3>
+  <p><code>is_declining_label</code> = <code>trend_direction == "down"</code>. This is a
+  <strong>defined, current-window proxy</strong>, not an observed future outcome — a
+  limitation carried through the whole study and stated plainly below.</p>
+  <h3>Baseline</h3>
+  <p>A transparent rule, readable by a non-engineer: a page is flagged if it hasn't
+  been updated in 180+ days <em>and</em> it's still getting meaningful traffic
+  (500+ impressions in 90 days). Score = <code>is_stale × is_visible × impressions_90d</code>.</p>
+  <h3>Model</h3>
+  <p>Random Forest (200 trees, max depth 10, min samples per leaf 25,
+  class-weight balanced), compared against Logistic Regression in earlier
+  experimentation; Random Forest was carried forward as the stronger of the two.</p>
+  <h3>Validation design</h3>
+  <p>Pages from the same client can share hidden characteristics — a random split
+  risks letting the model memorize client-specific quirks rather than learn
+  generalizable signal. All final numbers use a <strong>grouped-by-client split</strong>
+  (70/30, seed 42, zero client overlap between train and test).</p>
+  <h3>Leakage checks</h3>
+  <p>The feature set (<code>content_age_days</code>, <code>days_since_last_update</code>,
+  <code>impressions_90d</code>, <code>avg_position</code>, <code>ctr</code>,
+  <code>word_count</code>, <code>engagement_rate</code>, <code>scroll_rate</code>) was
+  checked against the label source columns and found clean. A separate exercise on a
+  constructed within-month label (built to demonstrate the leakage-hunting method)
+  confirmed the test harness itself catches leaks correctly: a deliberately
+  label-derived feature pushed ROC-AUC to a perfect 1.000; removing it dropped the
+  score to 0.911, and removing a further sibling column dropped it to 0.902 — the
+  honest number.</p>
+</section>
+
+<section id="results">
+  <h2>Results</h2>
+  <p class="lede">The baseline rule outperformed the model. This is reported as the
+  headline finding, not reframed.</p>
+  <table>
+    <tr><th>Method</th><th class="num">Precision@20</th><th class="num">Precision@50</th><th class="num">Base rate</th></tr>
+    <tr class="highlight"><td>Baseline (stale + visible rule)</td><td class="num">0.65</td><td class="num">0.64</td><td class="num">0.559</td></tr>
+    <tr class="lowlight"><td>Random Forest (grouped split)</td><td class="num">0.45</td><td class="num">0.60</td><td class="num">0.559</td></tr>
+  </table>
+  <figure>
+    <img src="figures/model_vs_baseline.png" alt="Bar chart comparing Precision@20 and Precision@50 for the baseline rule versus the Random Forest model, with the base rate shown as a reference line.">
+    <figcaption>Precision@20 and Precision@50, baseline vs. model, on the same
+    grouped-by-client held-out split. The dashed line marks the base rate (0.559) —
+    the model's Precision@20 sits below it.</figcaption>
+  </figure>
+  <div class="callout warn">
+    The random-split trap: an earlier evaluation using a plain random split reported
+    Precision@20 = 1.00 — a misleadingly perfect number. Grouping by client (the
+    honest split) dropped it to 0.45. The 0.55-point gap between those two numbers is
+    itself the more important finding than either score alone: it demonstrates real
+    memorization was happening on the random split.
+  </div>
+</section>
+
+<section id="limitations">
+  <h2>Limitations</h2>
+  <ul>
+    <li><strong>The model does not beat the baseline here.</strong> Random Forest
+    trails the hand-written rule at both Precision@20 and Precision@50 on this split.
+    This narrow, single-signal rule turned out to be a genuinely strong comparison
+    point, not an easy target to beat.</li>
+    <li><strong>Proxy label, not an observed outcome.</strong> The label is derived
+    from the current window, not a validated future event. A stronger version of this
+    study would define the label over a future window (e.g. prior 90 days of features
+    predicting decline over the next 30 days) — explored structurally, separately,
+    against the full ~79M-row warehouse release.</li>
+    <li><strong>Single split.</strong> All numbers come from one 70/30 grouped split
+    at a fixed seed, not averaged across repeated splits.</li>
+    <li><strong>Cross-sectional data.</strong> Nothing here supports "refreshing a
+    flagged page will cause traffic to recover" — only association with a proxy
+    label. All claims in this paper are decision-support, not causal.</li>
+    <li><strong>Starter-slice scope.</strong> 30,000 rows and 32 clients — not yet
+    validated at the scale of the full warehouse release.</li>
+  </ul>
+</section>
+
+<section id="recommendations">
+  <h2>Ranked recommendations</h2>
+  <p>The output of this work is a ranked queue for human review, each page carrying a
+  reason code — never an automated action.</p>
+  <ol class="rec-list">
+    <li>
+      <strong>Review flagged stale-and-visible pages first.</strong>
+      <div class="reason">Reason code: <code>stale_visible_page</code> — 180+ days since
+      update, 500+ impressions in 90 days. The baseline's own strongest, most legible signal.</div>
+    </li>
+    <li>
+      <strong>Review low-CTR pages ranking on page one.</strong>
+      <div class="reason">Reason code: <code>low_ctr_visible_page</code> — high
+      impressions, position 1–20, CTR below 0.5%. A snippet/title fix, not a full rewrite.</div>
+    </li>
+    <li>
+      <strong>Expand thin pages that already get traffic.</strong>
+      <div class="reason">Reason code: <code>thin_visible_page</code> — under 1,200
+      words but 250+ impressions. Depth added deliberately, not padding.</div>
+    </li>
+  </ol>
+  <h3>Human review is required before any action</h3>
+  <ul>
+    <li>Confirm the traffic pattern isn't consolidation (a sibling page absorbing
+    demand) or seasonality before treating a page as declining.</li>
+    <li>Check whether <code>days_since_last_update</code> reflects a real gap or an
+    unrecorded update.</li>
+  </ul>
+  <h3>What should never be automated</h3>
+  <ul>
+    <li>Auto-publishing content changes based on the model's score alone.</li>
+    <li>Auto-pruning or merging pages without human confirmation.</li>
+    <li>Any claim that this system predicts Google's algorithm or guarantees recovery.</li>
+  </ul>
+</section>
+
+<section id="reproducibility">
+  <h2>Reproducibility</h2>
+  <div class="repro-box">
+    Every step in this paper — data contract, signal audit, baseline, model,
+    validation, leakage audit, and action playbook — is committed as a runnable
+    notebook in the linked repository, under <code>work/notebooks/</code>. Random seed
+    fixed at 42 throughout. Re-running <code>capstone.ipynb</code> from a fresh clone
+    reproduces every number in this paper.
+    <br><br>
+    → <a href="https://github.com/Santosh-S321/flyrank-ml-internship">github.com/Santosh-S321/flyrank-ml-internship</a>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="credit-box">
+      Built on the FlyRank ML Internship dataset —
+      <a href="https://flyrank.ai" target="_blank" rel="noopener">flyrank.ai</a>.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
